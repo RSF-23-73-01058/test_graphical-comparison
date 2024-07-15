@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+
+	<head>
+
+		<meta charset="utf-8">
+		<title>Strucutures from SMILES graphical comparision</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<style type="text/css">
+			html{font-family: "Arial";}
+			h2{margin-top: 75px;
+					margin-bottom: 40px;}
+			svg{border: 1px solid #665544;}
+			.wrapper {
+				justify-content: center;
+				display: grid;
+				grid-template-columns: 400px 400px;
+				column-gap: 100px;
+				align-items: center;
+			}
+			.cntrd_div {
+				text-align: center;
+			}
+			canvas {
+				color: #0088dd;
+				border-bottom: 1px solid #0088dd;
+				border-top: 1px solid #0088dd;
+				border-left: 1px solid #0088dd;
+				border-right: 1px solid #0088dd;
+			}
+		</style>
+		<script src="https://unpkg.com/@rdkit/rdkit/dist/RDKit_minimal.js"></script>
+		<script>
+		//SEE: https://github.com/rdkit/rdkit-js?tab=readme-ov-file#install
+    window
+      .initRDKitModule()
+      .then(function (RDKit) {
+        console.log("RDKit version: " + RDKit.version());
+        window.RDKit = RDKit;
+        /**
+         * The RDKit module is now loaded.
+         * You can use it anywhere.
+         */
+      })
+      .catch(() => {
+        console.log("RDKit.js is not initialized");
+      });
+  </script>
+	</head>
+
+		<body>
+
+		<h1>RSCF 23-73-01058: test the graphical comparision of chemical structures from SMILES using RDKit.js <hr /> </h1>
+
+		<div class = "wrapper">
+			<div>
+				<!-- Canvas to render the structures -->
+				<div>
+					<canvas id = "canvas_one" width = "400" height = "400"/>
+				</div>
+				<div>
+					<form id = "form_one">
+						<input type="text" name="SMILES_1" size="55" maxlength="3000" placeholder="paste SMILES for the first structure" />
+					</form>
+				</div>
+			</div>
+			<div>
+				<div>
+					<canvas id = "canvas_two" width = "400" height = "400"/>
+				</div>
+				<div>
+					<form id = "form_two">
+						<input type="text" name="SMILES_2" size="55" maxlength="3000" placeholder="paste SMILES for the second structure"/>
+					</form>
+				</div>
+			</div>
+		</div>
+		<div class = "cntrd_div">
+			</h3> <hr /></h3>
+				<p id = "result"   ></p>
+		</div>
+		<div class = "cntrd_div">
+			<button id = "start">submit</button>
+		</div>
+
+		</body>
+
+		<script type="text/javascript">
+			//General things
+			const canvas_one = document.querySelector("#canvas_one");
+			const context_one = canvas_one.getContext("2d", { willReadFrequently: true });
+			const canvas_two = document.querySelector("#canvas_two");
+			const context_two = canvas_two.getContext("2d", { willReadFrequently: true });
+			const rect_string = new RegExp('.*</rect>\n', 'ms');
+			const new_header = "<svg xmlns='http://www.w3.org/2000/svg'  viewBox='0 0 400 400' width='400' height='400' > <g id='structure'>\n";
+			const formElem_one = document.querySelector("#form_one");
+			const formElem_two = document.querySelector("#form_two");
+			//Some functions
+			//Function to draw thing on canvas
+			function draw_canvas (svg_thing, canvas, context) {
+				return new Promise((resolve, reject) => {
+					let img = new Image();
+					img.src = 'data:image/svg+xml; charset=utf8, ' + encodeURIComponent(svg_thing);
+					img.addEventListener('load', function(){context.drawImage(img, 0, 0,400, 400, 0, 0,400, 400); resolve("result");});
+				});
+			}
+			//Function to test whether two arrays are equal, SEE: https://flexiple.com/javascript/javascript-array-equality
+			function array_equality (a, b) {
+    		return Array.isArray(a) &&
+        	Array.isArray(b) &&
+        	a.length === b.length &&
+        	a.every((val, index) => val === b[index]);
+			}
+			//Function to do the whole  comparison of structures
+			async function compare (formElem_one, formElem_two, canvas_one, canvas_two, context_one, context_two, rect_string, draw_canvas, array_equality){
+				//Clear the canvas
+				context_one.clearRect(0, 0, 400, 400);
+				context_two.clearRect(0, 0, 400, 400);
+				document.querySelector("#result").innerHTML = "<b>C O M P A R I N G</b>";
+				//Get the data, SEE: https://developer.mozilla.org/en-US/docs/Web/API/HTMLFormElement/formdata_event
+				const formData_one = new FormData(formElem_one);
+				const formData_two = new FormData(formElem_two);
+				const smiles_one = formData_one.get("SMILES_1");
+				const smiles_two = formData_two.get("SMILES_2");
+				//Use RDKit.js, SEE: https://www.rdkitjs.com/#drawing-molecules-all-options
+				//Parse SMILES
+				const mol_one = RDKit.get_mol(RDKit.get_mol(smiles_one).get_kekule_form());
+				const mol_two = RDKit.get_mol(RDKit.get_mol(smiles_two).get_kekule_form());
+				mol_one.remove_hs();
+				mol_two.remove_hs();
+				mol_one.set_new_coords(true);
+				mol_one.straighten_depiction();
+				mol_two.set_new_coords(true);
+				mol_two.straighten_depiction();
+				//Generate SVG
+				svg_string_one = ((mol_one.get_svg(400, 400)).replace(rect_string, new_header)).replace("</svg>", "</g></svg>");
+				const svg_string_two = ((mol_two.get_svg(400, 400)).replace(rect_string, new_header)).replace("</svg>", "</g></svg>");
+				//Draw on canvas to get pixel data
+				//Draw #1
+				await draw_canvas(svg_string_one, canvas_one, context_one);
+				//Get the pixel data SEE: https://stackoverflow.com/questions/29847988/convert-uint8clampedarray-to-regular-array
+				let imageData = context_one.getImageData(0, 0, 400, 400).data;
+				let pixelVal = imageData.filter((value, index) => index % 4 === (4 - 1));
+				pixelVal = Array.prototype.slice.call(pixelVal);
+				//Get the inices of non-zero elements
+				const indices_one = [];
+				for (let i = pixelVal.length - 1; i >= 0; i--) {
+					if (pixelVal[i] > 0) {
+						indices_one.push(i);
+					}
+				}
+				//Clear the canvas
+				context_one.clearRect(0, 0, 400, 400);
+				//Draw #2
+				await draw_canvas(svg_string_two, canvas_two, context_two);
+				//Get the pixel data SEE: https://stackoverflow.com/questions/29847988/convert-uint8clampedarray-to-regular-array
+				imageData = context_two.getImageData(0, 0, 400, 400).data;
+				pixelVal = imageData.filter((value, index) => index % 4 === (4 - 1));
+				pixelVal = Array.prototype.slice.call(pixelVal);
+				//Get the inices of non-zero elements
+				const indices_two = [];
+				for (let i = pixelVal.length - 1; i >= 0; i--) {
+					if (pixelVal[i] > 0) {
+						indices_two.push(i);
+					}
+				}
+				//Clear the canvas
+				context_two.clearRect(0, 0, 400, 400);
+				if (array_equality(indices_one, indices_two)) {
+					document.querySelector("#result").innerHTML = "<b>SMILES have identical graphical depIctions</b>";
+				} else {
+					document.querySelector("#result").innerHTML = "<b>SMILES have distinct graphical depictions</b>";
+				}
+				//Draw two structures
+				await draw_canvas(svg_string_one, canvas_one, context_one);
+				await draw_canvas(svg_string_two, canvas_two, context_two);
+				
+			}
+
+			//start the process
+			const start = document.querySelector("#start");
+			start.addEventListener("click", function() { compare(formElem_one, formElem_two, canvas_one, canvas_two, context_one, context_two, rect_string, draw_canvas, array_equality); }, false);
+		</script>
+
+	</body>
+</html>
