@@ -124,8 +124,8 @@
 				const smiles_two = formData_two.get("SMILES_2");
 				//Use RDKit.js, SEE: https://www.rdkitjs.com/#drawing-molecules-all-options
 				//Parse SMILES
-				const mol_one = RDKit.get_mol(RDKit.get_mol(smiles_one).get_kekule_form());
-				const mol_two = RDKit.get_mol(RDKit.get_mol(smiles_two).get_kekule_form());
+				const mol_one = RDKit.get_mol(smiles_one);
+				const mol_two = RDKit.get_mol(smiles_two);
 				mol_one.remove_hs();
 				mol_two.remove_hs();
 				mol_one.set_new_coords(true);
